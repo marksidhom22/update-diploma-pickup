@@ -5,6 +5,8 @@ import pandas as pd
 import tkinter as tk
 from tkinter import messagebox
 import os
+import configparser
+from tkinter import ttk
 
 # Function to make a beep sound
 def beep():
@@ -48,7 +50,7 @@ def check_date_field():
     
     # Copy the content of the date field
     pg.hotkey('ctrl', 'c')
-    time.sleep(0.5)  # Short delay to ensure clipboard content is available
+    time.sleep(wait_time)  # Short delay to ensure clipboard content is available
     clipboard_content = pyperclip.paste().strip()
     
     # Check if the clipboard content is empty
@@ -63,129 +65,196 @@ def check_date_field():
         pg.typewrite(time.strftime("%m/%d/%Y"))
         return True  # Date field was empty and updated
 
-# Read the CSV file
-df = pd.read_csv('Diploma mailing list(Name List).csv', delimiter=",")
+# Load coordinates and settings from config file
+config = configparser.ConfigParser()
+config.read('config.ini')
 
-# Iterate through the rows of the DataFrame
-for index, row in df.iterrows():
-    dawg_tag = str(row['Dawg Tag'])
-    status = str(row['Status'])
-    update_status = str(row['update_date_status'])
+# Get wait_mode from config
+wait_mode = config.get('Settings', 'wait_mode', fallback='normal')
 
-    # Check if the Status is empty
-    if update_status != "done" and (pd.isna(status) or status.strip() == "" or status == 'nan'):
-        print(f"Processing Dawg Tag: {dawg_tag}")
-
-        # Simulate the action on the screen (e.g., typing the Dawg Tag)
-        # Click to the Id field
-        IdField_x = 373
-        IdField_y = 170
-        pg.click(IdField_x, IdField_y, duration=0.5)
-        pg.click(IdField_x, IdField_y, duration=0.5)
-
-        # Clear the Id field
-        pg.keyDown("backspace")
-        time.sleep(1)
-        pg.keyUp("backspace")
-
-        # Type the new Id
-        time.sleep(1)
-        pg.typewrite(dawg_tag)
-        time.sleep(2)
-
-        # Select Degree Sequence
-        Degree_seq_x = 1300
-        Degree_seq_y = 181
-        pg.doubleClick(Degree_seq_x, Degree_seq_y, duration=0.5)
-
-        # Select Degree Number
-        Degree_num_x = 160
-        Degree_num_y = 278
-        pg.click(Degree_num_x, Degree_num_y, duration=0.5)
-                
-        # Select Outcome Status
-        outcome_stat_x = 272
-        outcome_stat_y = 284
-        pg.click(outcome_stat_x, outcome_stat_y, duration=0.5)
-
-        time.sleep(0.5)
+# Set wait time based on the mode (normal or long)
+if wait_mode == 'long':
+    wait_time = 4  # Long waiting time (in seconds)
+else:
+    wait_time = 0.5  # Normal waiting time (in seconds)
 
 
-        # Copy Outcome Status and check if it matches 'AW'
-        clear_clipboard()
-        pg.hotkey('ctrl', 'c')
-        time.sleep(0.25)
-        pg.hotkey('ctrl', 'c')
-        check_clipboard("AW")
+import csv
 
-        # Select Graduation Term
-        Grad_term_x = 1229
-        Grad_term_y = 280
-        pg.click(Grad_term_x, Grad_term_y, duration=0.5)
+def update_row_in_csv(csv_file, updated_row, row_index):
+    temp_file = 'temp.csv'  # Temporary file for writing updated rows
+    with open(csv_file, mode='r', newline='') as infile, open(temp_file, mode='w', newline='') as outfile:
+        reader = csv.reader(infile)
+        writer = csv.writer(outfile)
 
-        time.sleep(0.5)
+        # Loop through the CSV and write the updated row when the index matches
+        for i, row in enumerate(reader):
+            if i == row_index:
+                writer.writerow(updated_row)  # Write the updated row
+            else:
+                writer.writerow(row)  # Write the original row
 
-        # Copy Graduation Term and check if it matches '202420'
-        clear_clipboard()
-        pg.hotkey('ctrl', 'c')
-        time.sleep(0.25)
-        pg.hotkey('ctrl', 'c')
-        check_clipboard("202420")
+    # Replace the original file with the updated file
+    os.replace(temp_file, csv_file)
 
-        # Double-click Degree Number to reset
-        Degree_num_x = 160
-        Degree_num_y = 278
-        pg.doubleClick(Degree_num_x, Degree_num_y, duration=0.5)
-        pg.doubleClick(Degree_num_x, Degree_num_y, duration=0.5)
+# Main processing function
+def process_csv():
+    # Read the CSV file
+    df = pd.read_csv('Diploma mailing list(Name List).csv', delimiter=",")
+    refresh()
+    # Iterate through the rows of the DataFrame
+    for index, row in df.iterrows():
+        dawg_tag = str(row['Dawg Tag'])
+        decision = str(row['decision'])
+        update_status = str(row['update_date_status'])
 
-        # Click Go
-        go_x = 1845
-        go_y = 172
-        pg.doubleClick(go_x, go_y, duration=0.5)
+        # Check if the Status is empty
+        if update_status != "done" and (pd.isna(decision) or decision.strip() == "" or decision == 'nan'):
+            print(f"Processing Dawg Tag: {dawg_tag}")
 
-        # Coordinates for the date field
-        date_x = 348
-        date_y = 670
+            # Simulate the action on the screen (e.g., typing the Dawg Tag)
+            IdField_x = int(config['Coordinates']['IdField_x'])
+            IdField_y = int(config['Coordinates']['IdField_y'])
+            pg.click(IdField_x, IdField_y, duration=wait_time)
+            pg.click(IdField_x, IdField_y, duration=wait_time)
 
-        # Click Date field
-        pg.click(date_x, date_y, duration=0.5)
+            # Clear the Id field
+            pg.keyDown("backspace")
+            time.sleep(2*wait_time)
+            pg.keyUp("backspace")
 
-        # Check if the date field is empty and act accordingly
-        check_date_field()
+            # Type the new Id
+            time.sleep(2*wait_time)
+            pg.typewrite(dawg_tag)
+            time.sleep(4*wait_time)
 
-        # Save
-        save_x = 1896
-        save_y = 970
-        pg.doubleClick(save_x, save_y, duration=0.5)
+            Degree_seq_x = int(config['Coordinates']['Degree_seq_x'])
+            Degree_seq_y = int(config['Coordinates']['Degree_seq_y'])
+            pg.doubleClick(Degree_seq_x, Degree_seq_y, duration=wait_time)
+            time.sleep(2*wait_time)
 
-        # Verify that the save was successful
-        message_x = 1583
-        message_y = 171
-        pg.doubleClick(message_x, message_y)
-        time.sleep(0.25)
-        pg.doubleClick(message_x, message_y)
+            Degree_num_x = int(config['Coordinates']['Degree_num_x'])
+            Degree_num_y = int(config['Coordinates']['Degree_num_y'])
+            pg.click(Degree_num_x, Degree_num_y, duration=wait_time)
 
-        pg.hotkey('ctrl', 'c')
-        if check_clipboard("Saved successfully (1 rows saved)"):
-            df.at[index, 'update_date_status'] = 'done'
+            outcome_stat_x = int(config['Coordinates']['outcome_stat_x'])
+            outcome_stat_y = int(config['Coordinates']['outcome_stat_y'])
+            pg.click(outcome_stat_x, outcome_stat_y, duration=wait_time)
 
-        # Save the updated DataFrame back to the CSV file
-        df.to_csv('Diploma mailing list(Name List).csv', index=False)
+            time.sleep(wait_time)
 
-        # Refresh the screen
-        refresh_x = 112
-        refresh_y = 81
-        pg.click(refresh_x, refresh_y, duration=0.5)
-        time.sleep(2)
+            clear_clipboard()
+            pg.hotkey('ctrl', 'c')
+            time.sleep(wait_time)
+            pg.hotkey('ctrl', 'c')
+            if not check_clipboard("AW"):
+                df.at[index, 'update_date_status'] = 'Update Failed'
+            # Save the updated DataFrame back to the CSV file after each loop
+            # Convert the updated DataFrame row back to a list to write into the CSV
+                df.at[index, 'decision'] = ''
+                updated_row = df.iloc[index].tolist()
+                update_row_in_csv('Diploma mailing list(Name List).csv', updated_row, index+1)
 
-        # Navigate through the menu
-        menu_x = 45
-        menu_y = 551
-        pg.click(menu_x, menu_y, duration=0.5)
-        time.sleep(1)
+                refresh()
+                continue
 
-        system_x = 192
-        system_y = 407
-        pg.click(system_x, system_y, duration=0.5)
 
-        time.sleep(2)
+            Grad_term_x = int(config['Coordinates']['Grad_term_x'])
+            Grad_term_y = int(config['Coordinates']['Grad_term_y'])
+            pg.click(Grad_term_x, Grad_term_y, duration=wait_time)
+
+            time.sleep(wait_time)
+
+            clear_clipboard()
+            pg.hotkey('ctrl', 'c')
+            time.sleep(wait_time)
+            pg.hotkey('ctrl', 'c')
+            if not check_clipboard("202440"):
+                df.at[index, 'update_date_status'] = 'Update Failed'
+            # Save the updated DataFrame back to the CSV file after each loop
+            # Convert the updated DataFrame row back to a list to write into the CSV
+                df.at[index, 'decision'] = ''
+                updated_row = df.iloc[index].tolist()
+                update_row_in_csv('Diploma mailing list(Name List).csv', updated_row, index+1)
+
+                refresh()
+                continue
+
+            Degree_num_x = int(config['Coordinates']['Degree_num_x'])
+            Degree_num_y = int(config['Coordinates']['Degree_num_y'])
+            pg.doubleClick(Degree_num_x, Degree_num_y, duration=wait_time)
+            pg.doubleClick(Degree_num_x, Degree_num_y, duration=wait_time)
+
+            go_x = int(config['Coordinates']['go_x'])
+            go_y = int(config['Coordinates']['go_y'])
+            pg.doubleClick(go_x, go_y, duration=wait_time)
+
+            date_x = int(config['Coordinates']['date_x'])
+            date_y = int(config['Coordinates']['date_y'])
+            pg.click(date_x, date_y, duration=wait_time)
+
+            check_date_field()
+
+            save_x = int(config['Coordinates']['save_x'])
+            save_y = int(config['Coordinates']['save_y'])
+            pg.doubleClick(save_x, save_y, duration=wait_time)
+
+            message_x = int(config['Coordinates']['message_x'])
+            message_y = int(config['Coordinates']['message_y'])
+            pg.doubleClick(message_x, message_y)
+            time.sleep(0.25)
+            pg.doubleClick(message_x, message_y)
+
+            pg.hotkey('ctrl', 'c')
+            if check_clipboard("Saved successfully (1 rows saved)"):
+                df.at[index, 'update_date_status'] = 'done'
+
+            else:
+                df.at[index, 'update_date_status'] = 'Update Failed'
+            # Save the updated DataFrame back to the CSV file after each loop
+            # Convert the updated DataFrame row back to a list to write into the CSV
+            df.at[index, 'decision'] = ''
+            updated_row = df.iloc[index].tolist()
+            update_row_in_csv('Diploma mailing list(Name List).csv', updated_row, index+1)
+
+            refresh()
+
+
+def refresh():
+    refresh_x = int(config['Coordinates']['refresh_x'])
+    refresh_y = int(config['Coordinates']['refresh_y'])
+    pg.click(refresh_x, refresh_y, duration=wait_time)
+    time.sleep(4*wait_time)
+
+    menu_x = int(config['Coordinates']['menu_x'])
+    menu_y = int(config['Coordinates']['menu_y'])
+    pg.click(menu_x, menu_y, duration=wait_time)
+    time.sleep(2*wait_time)
+
+    system_x = int(config['Coordinates']['system_x'])
+    system_y = int(config['Coordinates']['system_y'])
+    pg.click(system_x, system_y, duration=wait_time)
+
+    time.sleep(4*wait_time)
+
+# GUI
+def run_gui():
+    root = tk.Tk()
+    root.title("Process Dawg Tags")
+    root.geometry("300x150")
+
+    label = tk.Label(root, text="Click 'Start' to process the CSV.")
+    label.pack(pady=10)
+
+    start_button = ttk.Button(root, text="Start", command=process_csv)
+    start_button.pack(pady=10)
+
+    root.mainloop()
+
+# Determine whether to run in GUI or direct mode based on config
+run_mode = config.get('Settings', 'run_mode', fallback='gui')
+
+if run_mode == 'gui':
+    run_gui()  # Launch the GUI
+else:
+    process_csv()  # Run directly

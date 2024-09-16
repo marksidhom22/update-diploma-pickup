@@ -1,0 +1,8 @@
+pyautogui==0.9.53
+pyperclip==1.8.2
+pandas==1.5.3
+tkinter==0.1.0  # Note: tkinter is built-in with Python, no need to install separately, this line is for clarity
+pynput
+pyautogui
+pandas
+pyperclip
